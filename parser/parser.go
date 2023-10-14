@@ -65,19 +65,6 @@ func NewPGSlowLogParser(r io.Reader, logLinePrefix string) (*PGSlowLogParser, er
 	return p, nil
 }
 
-func (pg *PGSlowLogParser) Init(logLinePrefix string) error {
-	logPrefixExpr := pg.logLinePrefixToRegexpPattern(logLinePrefix)
-	var err error
-	pg.logPrefixRe, err = regexp.Compile(logPrefixExpr)
-	if err != nil {
-		return err
-	}
-
-	pg.slowLogRe = regexp.MustCompile(logPrefixExpr + `\s*` + slowLogExpr)
-
-	return nil
-}
-
 // %m [%p] -> \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[.0-9]* [a-zA-Z]+ \[\d+\]
 func (pg *PGSlowLogParser) logLinePrefixToRegexpPattern(logLinePrefix string) string {
 	pattern := regexp.QuoteMeta(logLinePrefix)
@@ -136,6 +123,7 @@ LOOP:
 
 func (pg *PGSlowLogParser) sendLogEntry(line string) error {
 	if line == "" && pg.logEntry != nil {
+		pg.logEntry.TrimEndNewline()
 		pg.logEntryChan <- pg.logEntry
 		pg.logEntry = nil
 		return nil
@@ -144,6 +132,7 @@ func (pg *PGSlowLogParser) sendLogEntry(line string) error {
 	var err error
 	if pg.logPrefixRe.MatchString(line) {
 		if pg.logEntry != nil {
+			pg.logEntry.TrimEndNewline()
 			pg.logEntryChan <- pg.logEntry
 			pg.logEntry = nil
 		}

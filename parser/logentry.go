@@ -37,3 +37,7 @@ func NewLogEntry(durationStr, statement string) (*LogEntry, error) {
 func (le *LogEntry) AppendStatement(statement string) {
 	le.Statement += "\n" + strings.Replace(statement, "\t", "", 1)
 }
+
+func (le *LogEntry) TrimEndNewline() {
+	le.Statement = strings.TrimRight(le.Statement, "\n")
+}
