@@ -44,6 +44,7 @@ type PGSlowLogParser struct {
 	logEntry     *LogEntry
 	logPrefixRe  *regexp.Regexp
 	slowLogRe    *regexp.Regexp
+	readBytes    int64
 }
 
 func NewPGSlowLogParser(r io.Reader, logLinePrefix string) (*PGSlowLogParser, error) {
@@ -94,12 +95,14 @@ LOOP:
 		}
 
 		line, err := r.ReadString('\n')
+		readBytes := int64(len(line))
+		pg.readBytes += readBytes
 		if err != nil {
 			if err != io.EOF {
 				return err
 			}
 
-			err = pg.sendLogEntry(line)
+			err = pg.sendLogEntry(line, readBytes)
 			if err != nil {
 				return err
 			}
@@ -107,13 +110,13 @@ LOOP:
 			break LOOP
 		}
 
-		err = pg.sendLogEntry(line)
+		err = pg.sendLogEntry(line, readBytes)
 		if err != nil {
 			return err
 		}
 	}
 
-	err := pg.sendLogEntry("")
+	err := pg.sendLogEntry("", 0)
 	if err != nil {
 		return err
 	}
@@ -121,7 +124,7 @@ LOOP:
 	return nil
 }
 
-func (pg *PGSlowLogParser) sendLogEntry(line string) error {
+func (pg *PGSlowLogParser) sendLogEntry(line string, readBytes int64) error {
 	if line == "" && pg.logEntry != nil {
 		pg.logEntry.TrimEndNewline()
 		pg.logEntryChan <- pg.logEntry
@@ -144,7 +147,7 @@ func (pg *PGSlowLogParser) sendLogEntry(line string) error {
 
 		durationStr := matches[1]
 		statement := matches[2]
-		pg.logEntry, err = NewLogEntry(durationStr, statement)
+		pg.logEntry, err = NewLogEntry(durationStr, statement, readBytes)
 		if err != nil {
 			return err
 		}
@@ -152,6 +155,8 @@ func (pg *PGSlowLogParser) sendLogEntry(line string) error {
 		if pg.logEntry == nil {
 			return nil
 		}
+
+		pg.logEntry.ReadBytes += readBytes
 
 		pg.logEntry.AppendStatement(line)
 	}
@@ -167,4 +172,8 @@ func (pg *PGSlowLogParser) Stop() {
 
 func (pg *PGSlowLogParser) LogEntryChan() <-chan *LogEntry {
 	return pg.logEntryChan
+}
+
+func (pg *PGSlowLogParser) ReadBytes() int64 {
+	return pg.readBytes
 }

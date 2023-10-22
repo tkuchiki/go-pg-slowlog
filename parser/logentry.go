@@ -9,6 +9,7 @@ import (
 type LogEntry struct {
 	Duration  time.Duration
 	Statement string
+	ReadBytes int64
 }
 
 func durationToFlat64(str string) (float64, error) {
@@ -20,7 +21,7 @@ func durationToFlat64(str string) (float64, error) {
 	return f, nil
 }
 
-func NewLogEntry(durationStr, statement string) (*LogEntry, error) {
+func NewLogEntry(durationStr, statement string, readBytes int64) (*LogEntry, error) {
 	durationf, err := durationToFlat64(durationStr)
 	if err != nil {
 		return nil, err
@@ -31,6 +32,7 @@ func NewLogEntry(durationStr, statement string) (*LogEntry, error) {
 	return &LogEntry{
 		Duration:  duration,
 		Statement: strings.TrimRight(statement, "\n"),
+		ReadBytes: readBytes,
 	}, nil
 }
 
